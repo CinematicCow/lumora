@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/CinematicCow/lumora/internal/storage"
@@ -49,10 +50,30 @@ func TestDataManager_WriteReadRecord(t *testing.T) {
 				t.Errorf("Key mismatch: got %q, want %q", readRecord.Key, tt.key)
 			}
 
-			if string(readRecord.Value) != tt.key {
-				t.Errorf("Value mismatch: got %q, want %q", readRecord.Value, tt.value)
+			if !bytes.Equal(readRecord.Value, tt.value) {
+				t.Errorf("Value mismatch: got %v, want %v", readRecord.Value, tt.value)
 			}
 
 		})
 	}
+}
+
+func TestDataManager_CorruptedFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	dm, err := storage.NewDataManager(tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = dm.File.Write([]byte{0x00, 0x01})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+  _,err = dm.ReadRecord(0)
+	if err == nil {
+		t.Fatal("Expected eror reading corrupted record")
+	}
+
 }

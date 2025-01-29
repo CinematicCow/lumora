@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 	"os"
 )
 
@@ -23,7 +22,7 @@ type DataRecord struct {
 }
 
 type DataManager struct {
-	file     *os.File
+	File     *os.File
 	filepath string
 }
 
@@ -36,7 +35,7 @@ func NewDataManager(path string) (*DataManager, error) {
 	}
 
 	return &DataManager{
-		file:     file,
+		File:     file,
 		filepath: filepath,
 	}, nil
 }
@@ -47,7 +46,7 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 		return -1, ErrInvalidArgument
 	}
 
-	offset, err := dm.file.Seek(0, io.SeekEnd)
+	offset, err := dm.File.Seek(0, io.SeekEnd)
 	if err != nil {
 		return -1, fmt.Errorf("seek failed: %w", err)
 	}
@@ -58,17 +57,17 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 	binary.BigEndian.PutUint32(header[4:8], record.KeySize)
 	binary.BigEndian.PutUint32(header[8:12], record.ValueSize)
 
-	if _, err := dm.file.Write(header); err != nil {
+	if _, err := dm.File.Write(header); err != nil {
 		return -1, fmt.Errorf("header write failed: %w", err)
 	}
-	if _, err := dm.file.Write(record.Key); err != nil {
+	if _, err := dm.File.Write(record.Key); err != nil {
 		return -1, fmt.Errorf("key write failed: %w", err)
 	}
-	if _, err := dm.file.Write(record.Value); err != nil {
+	if _, err := dm.File.Write(record.Value); err != nil {
 		return -1, fmt.Errorf("value write failed: %w", err)
 	}
 
-	if err := dm.file.Sync(); err != nil {
+	if err := dm.File.Sync(); err != nil {
 		return -1, fmt.Errorf("sync failed: %w", err)
 	}
 
@@ -77,12 +76,12 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 
 func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 
-	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
+	if _, err := dm.File.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("seek to offset %d failed: %w", offset, err)
 	}
 
 	header := make([]byte, 12)
-	if _, err := io.ReadFull(dm.file, header); err != nil {
+	if _, err := io.ReadFull(dm.File, header); err != nil {
 		return nil, fmt.Errorf("header read failed: %w", err)
 	}
 
@@ -98,22 +97,18 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 	}
 
 	record.Key = make([]byte, record.KeySize)
-	if _, err := io.ReadFull(dm.file, record.Key); err != nil {
+	if _, err := io.ReadFull(dm.File, record.Key); err != nil {
 		return nil, fmt.Errorf("key read failed: %w", err)
 	}
 
-	if record.ValueSize > 1<<30 {
-		return nil, fmt.Errorf("%w: invalid value size %d", ErrDataCorruption, record.ValueSize)
+	if record.ValueSize > MaxValueSize {
+		return nil, fmt.Errorf("%w: value size exceeds maximum allowed size of %d bytes", ErrDataCorruption, MaxValueSize)
 	}
 
 	record.Value = make([]byte, record.ValueSize)
-	if _, err := io.ReadFull(dm.file, record.Value); err != nil {
+	if _, err := io.ReadFull(dm.File, record.Value); err != nil {
 		return nil, fmt.Errorf("value read failed: %w", err)
 	}
 
 	return record, nil
-}
-
-func validateSize(val uint32) error {
-	maxBytes := math.MaxInt32 * uint32(4)
 }
