@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 )
 
 const (
 	DataFileName = "lumora.data"
 	headerSize   = 12
+	MaxValueSize = 40 * 1024 * 1024
 )
 
 type DataRecord struct {
@@ -100,7 +102,6 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 		return nil, fmt.Errorf("key read failed: %w", err)
 	}
 
-	// 4gb max value size
 	if record.ValueSize > 1<<30 {
 		return nil, fmt.Errorf("%w: invalid value size %d", ErrDataCorruption, record.ValueSize)
 	}
@@ -111,4 +112,8 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 	}
 
 	return record, nil
+}
+
+func validateSize(val uint32) error {
+	maxBytes := math.MaxInt32 * uint32(4)
 }
