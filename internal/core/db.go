@@ -62,6 +62,11 @@ func (db *LumoraDB) Put(key string, value []byte) error {
 	if err := db.indexManager.PutEntry(key, entry); err != nil {
 		return fmt.Errorf("index update failed: %w", err)
 	}
+
+	if err := db.indexManager.Save(); err != nil {
+		return fmt.Errorf("index save failed: %w", err)
+	}
+
 	return nil
 }
 
