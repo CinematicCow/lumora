@@ -22,6 +22,7 @@ func Open(dataDir string) (*LumoraDB, error) {
 
 	indexManager, err := storage.NewIndexManager(dataDir)
 	if err != nil {
+		dataManager.Close()
 		return nil, fmt.Errorf("index manager init failed: %w", err)
 	}
 
@@ -101,17 +102,18 @@ func (db *LumoraDB) Get(key string) ([]byte, error) {
 
 func (db *LumoraDB) Close() error {
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	var errs []error
 
-	// don't close already closed managers
-	if db.dataManager == nil && db.indexManager == nil {
-		return nil
+	if err := db.dataManager.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("data manager close: %w", err))
 	}
 
 	if err := db.indexManager.Close(); err != nil {
-		return fmt.Errorf("close failed: %w", err)
+		errs = append(errs, fmt.Errorf("index manager close: %w", err))
 	}
-	db.indexManager = nil
+
+	if len(errs) > 0 {
+		return fmt.Errorf("database close errors: %v", errs)
+	}
 	return nil
 }

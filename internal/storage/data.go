@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 const (
@@ -22,8 +23,10 @@ type DataRecord struct {
 }
 
 type DataManager struct {
-	File     *os.File
+	file     *os.File
 	filepath string
+	mu       sync.Mutex
+	closed   bool
 }
 
 func NewDataManager(path string) (*DataManager, error) {
@@ -35,18 +38,24 @@ func NewDataManager(path string) (*DataManager, error) {
 	}
 
 	return &DataManager{
-		File:     file,
+		file:     file,
 		filepath: filepath,
 	}, nil
 }
 
 func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	if dm.closed {
+		return -1, ErrDataClosed
+	}
 
 	if record == nil {
 		return -1, ErrInvalidArgument
 	}
 
-	offset, err := dm.File.Seek(0, io.SeekEnd)
+	offset, err := dm.file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return -1, fmt.Errorf("seek failed: %w", err)
 	}
@@ -57,17 +66,17 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 	binary.BigEndian.PutUint32(header[4:8], record.KeySize)
 	binary.BigEndian.PutUint32(header[8:12], record.ValueSize)
 
-	if _, err := dm.File.Write(header); err != nil {
+	if _, err := dm.file.Write(header); err != nil {
 		return -1, fmt.Errorf("header write failed: %w", err)
 	}
-	if _, err := dm.File.Write(record.Key); err != nil {
+	if _, err := dm.file.Write(record.Key); err != nil {
 		return -1, fmt.Errorf("key write failed: %w", err)
 	}
-	if _, err := dm.File.Write(record.Value); err != nil {
+	if _, err := dm.file.Write(record.Value); err != nil {
 		return -1, fmt.Errorf("value write failed: %w", err)
 	}
 
-	if err := dm.File.Sync(); err != nil {
+	if err := dm.file.Sync(); err != nil {
 		return -1, fmt.Errorf("sync failed: %w", err)
 	}
 
@@ -75,13 +84,19 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 }
 
 func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
 
-	if _, err := dm.File.Seek(offset, io.SeekStart); err != nil {
+	if dm.closed {
+		return nil, ErrDataClosed
+	}
+
+	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("seek to offset %d failed: %w", offset, err)
 	}
 
 	header := make([]byte, 12)
-	if _, err := io.ReadFull(dm.File, header); err != nil {
+	if _, err := io.ReadFull(dm.file, header); err != nil {
 		return nil, fmt.Errorf("header read failed: %w", err)
 	}
 
@@ -97,7 +112,7 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 	}
 
 	record.Key = make([]byte, record.KeySize)
-	if _, err := io.ReadFull(dm.File, record.Key); err != nil {
+	if _, err := io.ReadFull(dm.file, record.Key); err != nil {
 		return nil, fmt.Errorf("key read failed: %w", err)
 	}
 
@@ -106,7 +121,7 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 	}
 
 	record.Value = make([]byte, record.ValueSize)
-	if _, err := io.ReadFull(dm.File, record.Value); err != nil {
+	if _, err := io.ReadFull(dm.file, record.Value); err != nil {
 		return nil, fmt.Errorf("value read failed: %w", err)
 	}
 
@@ -115,10 +130,17 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 
 func (dm *DataManager) Close() error {
 
-	if dm.File != nil {
-		err := dm.File.Close()
-		dm.File = nil
-		return err
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	if dm.closed {
+		return nil
 	}
+
+	if err := dm.file.Close(); err != nil {
+		return fmt.Errorf("data file close failed: %w", err)
+	}
+
+	dm.closed = true
 	return nil
 }
