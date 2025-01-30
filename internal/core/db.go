@@ -98,3 +98,20 @@ func (db *LumoraDB) Get(key string) ([]byte, error) {
 	}
 	return record.Value, nil
 }
+
+func (db *LumoraDB) Close() error {
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// don't close already closed managers
+	if db.dataManager == nil && db.indexManager == nil {
+		return nil
+	}
+
+	if err := db.indexManager.Close(); err != nil {
+		return fmt.Errorf("close failed: %w", err)
+	}
+	db.indexManager = nil
+	return nil
+}

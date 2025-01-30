@@ -112,3 +112,13 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 
 	return record, nil
 }
+
+func (dm *DataManager) Close() error {
+
+	if dm.File != nil {
+		err := dm.File.Close()
+		dm.File = nil
+		return err
+	}
+	return nil
+}
