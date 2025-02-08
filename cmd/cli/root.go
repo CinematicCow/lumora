@@ -4,18 +4,37 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/CinematicCow/lumora/internal/config"
 	"github.com/spf13/cobra"
 )
 
 var (
-	dataDir string
-	rootCmd = &cobra.Command{
+	dataDir    string
+	configFile string
+	rootCmd    = &cobra.Command{
 		Use:   "lumora",
 		Short: "kvdb to store yo mom's fat!",
 		Long:  `A key-value store CLI that allows you to interact with your mom's stored fat!.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Use != "init" && dataDir == "" {
-				return fmt.Errorf("data directory not specified. Please use --data-dir or LUMORA_DATA_DIR environment variable")
+			if cmd.Use != "init" && cmd.Use == "config" {
+				cfg, err := config.InitConfig()
+				if err != nil {
+					return fmt.Errorf("failed to initialize config: %w", err)
+				}
+				dbName, _ := cmd.Flags().GetString("db-name")
+				if dbName == "" {
+					dbName = cfg.DefaultDB
+				}
+				if dbName == "" {
+					return fmt.Errorf("no database specified. Please use --db-name or set a default database using 'lumora config set-default'")
+				}
+
+				dbPath, exists := cfg.GetDBPath(dbName)
+				if !exists {
+					return fmt.Errorf("database %s not found. Please initialize it using 'lumora init <db-name>'", dbName)
+				}
+				dataDir = dbPath
+
 			}
 			return nil
 		},

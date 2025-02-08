@@ -1,0 +1,35 @@
+package cli
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/CinematicCow/lumora/internal/core"
+	"github.com/spf13/cobra"
+)
+
+var putCmd = &cobra.Command{
+	Use:   "put <key> <value>",
+	Short: "Store a key-value pair",
+	Long:  "Store a key-value pair",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		key := args[0]
+		value := args[1]
+
+		db, err := core.Open(dataDir)
+		if err != nil {
+			log.Fatalf("Open failed: %v", err)
+		}
+		defer db.Close()
+
+		if err := db.Put(key, []byte(value)); err != nil {
+			log.Fatalf("Put failed: %v", err)
+		}
+		fmt.Printf("Key: %s | Value: %s\n", key, value)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(putCmd)
+}
