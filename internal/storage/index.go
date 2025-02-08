@@ -116,6 +116,18 @@ func (im *IndexManager) PutEntry(key string, entry IndexEntry) error {
 	return nil
 }
 
+func (im *IndexManager) DeleteEntry(key string) error {
+  im.mu.Lock()
+  defer im.mu.Unlock()
+
+  if im.closed{
+    return ErrIndexClosed
+  }
+
+  delete(im.index, key)
+  return nil
+}
+
 func (im *IndexManager) Close() error {
 	im.mu.Lock()
 	defer im.mu.Unlock()

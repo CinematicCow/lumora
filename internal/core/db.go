@@ -100,6 +100,30 @@ func (db *LumoraDB) Get(key string) ([]byte, error) {
 	return record.Value, nil
 }
 
+func (db *LumoraDB) Delete(key string) error {
+	if key == "" {
+		return storage.ErrInvalidArgument
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	_, err := db.indexManager.GetEntry(key)
+	if err != nil {
+		return err
+	}
+
+	if err := db.indexManager.DeleteEntry(key); err != nil {
+		return fmt.Errorf("index delete failed: %w", err)
+	}
+
+	if err := db.indexManager.Save(); err != nil {
+		return fmt.Errorf("index save failed: %w", err)
+	}
+
+	return nil
+}
+
 func (db *LumoraDB) Close() error {
 
 	var errs []error
