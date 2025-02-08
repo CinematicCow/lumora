@@ -99,3 +99,31 @@ func TestDataManager_CorruptedFile(t *testing.T) {
 		t.Errorf("Expected ErrDataCorruption, got: %v", err)
 	}
 }
+
+func TestDataManager_InvalidOffsets(t *testing.T) {
+	tempDir := t.TempDir()
+
+	dm, err := storage.NewDataManager(tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dm.Close()
+
+	tests := []struct {
+		name    string
+		offset  int64
+		wantErr error
+	}{
+		{"negative offset", -1, storage.ErrInvalidArgument},
+		{"beyond offset", 10000, storage.ErrDataCorruption},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := dm.ReadRecord(tt.offset)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("ReadRecord(%d) error = %v, want %v", tt.offset, err, tt.wantErr)
+			}
+		})
+	}
+}

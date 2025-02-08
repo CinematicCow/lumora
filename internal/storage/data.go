@@ -92,6 +92,10 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 		return nil, ErrDataClosed
 	}
 
+  if offset < 0 {
+    return nil, ErrInvalidArgument
+  }
+
 	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("%w: seek failed: %v", ErrDataCorruption, err)
 	}
