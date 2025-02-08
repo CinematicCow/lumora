@@ -4,14 +4,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 	"os"
+	"sync"
 )
 
 const (
 	DataFileName = "lumora.data"
 	headerSize   = 12
 	MaxValueSize = 40 * 1024 * 1024
+	MaxKeySize   = 40 * 1024 * 1024
 )
 
 type DataRecord struct {
@@ -25,6 +26,8 @@ type DataRecord struct {
 type DataManager struct {
 	file     *os.File
 	filepath string
+	mu       sync.Mutex
+	closed   bool
 }
 
 func NewDataManager(path string) (*DataManager, error) {
@@ -42,6 +45,12 @@ func NewDataManager(path string) (*DataManager, error) {
 }
 
 func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	if dm.closed {
+		return -1, ErrDataClosed
+	}
 
 	if record == nil {
 		return -1, ErrInvalidArgument
@@ -76,13 +85,28 @@ func (dm *DataManager) WriteRecord(record *DataRecord) (int64, error) {
 }
 
 func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
 
-	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("seek to offset %d failed: %w", offset, err)
+	if dm.closed {
+		return nil, ErrDataClosed
 	}
 
-	header := make([]byte, 12)
-	if _, err := io.ReadFull(dm.file, header); err != nil {
+  if offset < 0 {
+    return nil, ErrInvalidArgument
+  }
+
+	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("%w: seek failed: %v", ErrDataCorruption, err)
+	}
+
+	header := make([]byte, headerSize)
+	n, err := io.ReadFull(dm.file, header)
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete header (%d bytes)",
+				ErrDataCorruption, n)
+		}
 		return nil, fmt.Errorf("header read failed: %w", err)
 	}
 
@@ -92,28 +116,48 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 		ValueSize: binary.BigEndian.Uint32(header[8:12]),
 	}
 
-	// 16mb max key size
-	if record.KeySize > 1<<24 {
-		return nil, fmt.Errorf("%w: invalid key size %d", ErrDataCorruption, record.KeySize)
+	if record.KeySize > MaxKeySize {
+		return nil, fmt.Errorf("%w: key size %d exceeds maximum",
+			ErrDataCorruption, record.KeySize)
 	}
 
 	record.Key = make([]byte, record.KeySize)
 	if _, err := io.ReadFull(dm.file, record.Key); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete key data", ErrDataCorruption)
+		}
 		return nil, fmt.Errorf("key read failed: %w", err)
 	}
 
-	if record.ValueSize > 1<<30 {
-		return nil, fmt.Errorf("%w: invalid value size %d", ErrDataCorruption, record.ValueSize)
+	if record.ValueSize > MaxValueSize {
+		return nil, fmt.Errorf("%w: value size %d exceeds maximum",
+			ErrDataCorruption, record.ValueSize)
 	}
 
 	record.Value = make([]byte, record.ValueSize)
 	if _, err := io.ReadFull(dm.file, record.Value); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete value data", ErrDataCorruption)
+		}
 		return nil, fmt.Errorf("value read failed: %w", err)
 	}
 
 	return record, nil
 }
 
-func validateSize(val uint32) error {
-	maxBytes := math.MaxInt32 * uint32(4)
+func (dm *DataManager) Close() error {
+
+	dm.mu.Lock()
+	defer dm.mu.Unlock()
+
+	if dm.closed {
+		return nil
+	}
+
+	if err := dm.file.Close(); err != nil {
+		return fmt.Errorf("data file close failed: %w", err)
+	}
+
+	dm.closed = true
+	return nil
 }

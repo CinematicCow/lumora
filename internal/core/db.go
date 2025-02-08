@@ -22,6 +22,7 @@ func Open(dataDir string) (*LumoraDB, error) {
 
 	indexManager, err := storage.NewIndexManager(dataDir)
 	if err != nil {
+		dataManager.Close()
 		return nil, fmt.Errorf("index manager init failed: %w", err)
 	}
 
@@ -62,6 +63,11 @@ func (db *LumoraDB) Put(key string, value []byte) error {
 	if err := db.indexManager.PutEntry(key, entry); err != nil {
 		return fmt.Errorf("index update failed: %w", err)
 	}
+
+	if err := db.indexManager.Save(); err != nil {
+		return fmt.Errorf("index save failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -92,4 +98,22 @@ func (db *LumoraDB) Get(key string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: value size mismatch", storage.ErrDataCorruption)
 	}
 	return record.Value, nil
+}
+
+func (db *LumoraDB) Close() error {
+
+	var errs []error
+
+	if err := db.dataManager.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("data manager close: %w", err))
+	}
+
+	if err := db.indexManager.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("index manager close: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("database close errors: %v", errs)
+	}
+	return nil
 }
