@@ -97,3 +97,30 @@ func TestDB_Reopen(t *testing.T) {
 	}
 
 }
+
+func TestDB_Delete(t *testing.T) {
+	tempDir := t.TempDir()
+
+	db, err := core.Open(tempDir)
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	key := "yer"
+	value := []byte("mom")
+
+	err = db.Put(key, value)
+	if err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+
+	err = db.Delete(key)
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	_, err = db.Get(key)
+	if err != storage.ErrKeyNotFound {
+		t.Errorf("Expected ErrKeyNotFound, got %v", err)
+	}
+}
