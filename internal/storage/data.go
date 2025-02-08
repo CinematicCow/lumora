@@ -12,6 +12,7 @@ const (
 	DataFileName = "lumora.data"
 	headerSize   = 12
 	MaxValueSize = 40 * 1024 * 1024
+	MaxKeySize   = 40 * 1024 * 1024
 )
 
 type DataRecord struct {
@@ -92,11 +93,16 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 	}
 
 	if _, err := dm.file.Seek(offset, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("seek to offset %d failed: %w", offset, err)
+		return nil, fmt.Errorf("%w: seek failed: %v", ErrDataCorruption, err)
 	}
 
-	header := make([]byte, 12)
-	if _, err := io.ReadFull(dm.file, header); err != nil {
+	header := make([]byte, headerSize)
+	n, err := io.ReadFull(dm.file, header)
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete header (%d bytes)",
+				ErrDataCorruption, n)
+		}
 		return nil, fmt.Errorf("header read failed: %w", err)
 	}
 
@@ -106,22 +112,29 @@ func (dm *DataManager) ReadRecord(offset int64) (*DataRecord, error) {
 		ValueSize: binary.BigEndian.Uint32(header[8:12]),
 	}
 
-	// 16mb max key size
-	if record.KeySize > 1<<24 {
-		return nil, fmt.Errorf("%w: invalid key size %d", ErrDataCorruption, record.KeySize)
+	if record.KeySize > MaxKeySize {
+		return nil, fmt.Errorf("%w: key size %d exceeds maximum",
+			ErrDataCorruption, record.KeySize)
 	}
 
 	record.Key = make([]byte, record.KeySize)
 	if _, err := io.ReadFull(dm.file, record.Key); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete key data", ErrDataCorruption)
+		}
 		return nil, fmt.Errorf("key read failed: %w", err)
 	}
 
 	if record.ValueSize > MaxValueSize {
-		return nil, fmt.Errorf("%w: value size exceeds maximum allowed size of %d bytes", ErrDataCorruption, MaxValueSize)
+		return nil, fmt.Errorf("%w: value size %d exceeds maximum",
+			ErrDataCorruption, record.ValueSize)
 	}
 
 	record.Value = make([]byte, record.ValueSize)
 	if _, err := io.ReadFull(dm.file, record.Value); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil, fmt.Errorf("%w: incomplete value data", ErrDataCorruption)
+		}
 		return nil, fmt.Errorf("value read failed: %w", err)
 	}
 

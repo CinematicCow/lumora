@@ -2,6 +2,10 @@ package storage_test
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/CinematicCow/lumora/internal/storage"
@@ -61,19 +65,37 @@ func TestDataManager_WriteReadRecord(t *testing.T) {
 func TestDataManager_CorruptedFile(t *testing.T) {
 	tempDir := t.TempDir()
 
+	dataPath := filepath.Join(tempDir, storage.DataFileName)
+	corruptFile, err := os.Create(dataPath)
+	if err != nil {
+		t.Fatalf("Failed to create data file: %v", err)
+	}
+
+	header := make([]byte, 12)
+	binary.BigEndian.AppendUint32(header[0:4], 1)
+	binary.BigEndian.AppendUint32(header[4:8], 1<<24+1)
+	binary.BigEndian.AppendUint32(header[8:12], 0)
+
+	_, err = corruptFile.Write(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	corruptFile.Close()
+
+	// init data manager with corrupted file
 	dm, err := storage.NewDataManager(tempDir)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("DataManager failed: %v", err)
 	}
+	defer dm.Close()
 
-	_, err = dm.File.Write([]byte{0x00, 0x01})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-  _,err = dm.ReadRecord(0)
+	_, err = dm.ReadRecord(0)
 	if err == nil {
-		t.Fatal("Expected eror reading corrupted record")
+		t.Fatal("Expected error reading corrupted record")
 	}
 
+	// verify err type
+	if !errors.Is(err, storage.ErrDataCorruption) {
+		t.Errorf("Expected ErrDataCorruption, got: %v", err)
+	}
 }
