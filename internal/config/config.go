@@ -15,24 +15,29 @@ type Config struct {
 }
 
 func InitConfig() (*Config, error) {
+	configDir := filepath.Join(os.Getenv("HOME"), ".config", "lumora")
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return nil, err
+	}
+
 	viper.SetConfigName(ConfigFileName)
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(filepath.Join(os.Getenv("HOME"), ".config", "lumora"))
+	viper.AddConfigPath(configDir)
 
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// config not found, create one
-			config := &Config{
-				DefaultDB: "",
-				DBPaths:   make(map[string]string),
-			}
-			if err := config.Save(); err != nil {
-				return nil, err
-			}
-			return config, nil
-		} else {
+	if _, err := os.Stat(filepath.Join(configDir, ConfigFileName+".yaml")); os.IsNotExist(err) {
+		cfg := &Config{
+			DefaultDB: "",
+			DBPaths:   make(map[string]string),
+		}
+		err = cfg.Save()
+		if err != nil {
 			return nil, err
 		}
+	}
+
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, err
 	}
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
@@ -45,7 +50,7 @@ func InitConfig() (*Config, error) {
 func (c *Config) Save() error {
 	viper.Set("default_db", c.DefaultDB)
 	viper.Set("db_paths", c.DBPaths)
-	return viper.WriteConfig()
+	return viper.SafeWriteConfig()
 }
 
 func (c *Config) AddDB(name, path string) {
