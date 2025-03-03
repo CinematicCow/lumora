@@ -9,7 +9,7 @@ import (
 )
 
 var putCmd = &cobra.Command{
-	Use:   "put <key> <value>",
+	Use:   "set <key> <value>",
 	Short: "Store a key-value pair",
 	Long:  "Store a key-value pair",
 	Args:  cobra.ExactArgs(2),
@@ -28,7 +28,7 @@ var putCmd = &cobra.Command{
 		defer db.Close()
 
 		if err := db.Put(key, []byte(value)); err != nil {
-			log.Fatalf("Put failed: %v", err)
+			log.Fatalf("Set failed: %v", err)
 		}
 		fmt.Printf("Key: %s | Value: %s\n", key, value)
 	},
