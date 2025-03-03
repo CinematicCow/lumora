@@ -52,5 +52,4 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&dataDir, "data-dir", "d", "", "Data directory for the database")
-	rootCmd.PersistentFlags().StringP("db-name", "n", "", "Name of the database to use")
 }

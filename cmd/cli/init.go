@@ -27,16 +27,21 @@ var initCmd = &cobra.Command{
 			dbName = args[0]
 		}
 
-		if dataDir == "" {
-			dataDir = filepath.Join(os.Getenv("HOME"), ".config", "lumora", dbName)
-		}
+		dataDir = filepath.Join(os.Getenv("HOME"), ".config", "lumora", dbName)
 
 		if err := os.MkdirAll(dataDir, 0755); err != nil {
 			log.Fatalf("Failed to create data directory: %v", err)
 		}
 
+		setDefault, _ := cmd.Flags().GetBool("default")
 		cfg.AddDB(dbName, dataDir)
-		cfg.SetDefaultDB(dbName)
+		if setDefault || cfg.DefaultDB == "" {
+			cfg.SetDefaultDB(dbName)
+		}
+
+		if err := cfg.Save(); err != nil {
+			log.Fatalf("Failed to save config: %v", err)
+		}
 
 		_, err = core.Open(dataDir)
 		if err != nil {
@@ -48,4 +53,5 @@ var initCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	initCmd.Flags().Bool("default", false, "Set this DB as default")
 }
