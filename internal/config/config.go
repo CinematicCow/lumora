@@ -27,10 +27,16 @@ func InitConfig() (*Config, error) {
 
 	if _, err := os.Stat(filepath.Join(configDir, ConfigFileName+".yaml")); os.IsNotExist(err) {
 		cfg := &Config{
-			DefaultDB: "",
+			DefaultDB: "default",
 			DBPaths:   make(map[string]string),
 		}
-		err = cfg.Save()
+
+		if len(cfg.DBPaths) == 0 {
+			cfg.DBPaths["default"] = filepath.Join(configDir, "default")
+		}
+		viper.Set("default_db", cfg.DefaultDB)
+		viper.Set("db_paths", cfg.DBPaths)
+		err = viper.SafeWriteConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +56,7 @@ func InitConfig() (*Config, error) {
 func (c *Config) Save() error {
 	viper.Set("default_db", c.DefaultDB)
 	viper.Set("db_paths", c.DBPaths)
-	return viper.SafeWriteConfig()
+	return viper.WriteConfig()
 }
 
 func (c *Config) AddDB(name, path string) {
