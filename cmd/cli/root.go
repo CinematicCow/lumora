@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	dataDir    string
-	configFile string
-	rootCmd    = &cobra.Command{
+	dataDir string
+	rootCmd = &cobra.Command{
 		Use:   "lumora",
 		Short: "A simple key-value database",
 		Long:  `A key-value store CLI that allows you to interact with your data.`,

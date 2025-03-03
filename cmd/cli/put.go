@@ -13,9 +13,13 @@ var putCmd = &cobra.Command{
 	Short: "Store a key-value pair",
 	Long:  "Store a key-value pair",
 	Args:  cobra.ExactArgs(2),
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return WithDDK(cmd)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
 		value := args[1]
+		dataDir := cmd.Context().Value(DDK).(string)
 
 		db, err := core.Open(dataDir)
 		if err != nil {
@@ -32,4 +36,5 @@ var putCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(putCmd)
+	putCmd.Flags().StringP("name", "n", "", "database name to use")
 }
