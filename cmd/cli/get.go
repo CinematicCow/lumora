@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/CinematicCow/lumora/internal/core"
-	"github.com/CinematicCow/lumora/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ var getCmd = &cobra.Command{
 
 		value, err := db.Get(key)
 		if err != nil {
-			if errors.Is(err, storage.ErrKeyNotFound) {
+			if errors.Is(err, core.ErrKeyNotFound) {
 				fmt.Printf("key %q not found in %q\n", key, dataDir)
 			}
 			log.Fatalf("Get failed: %v", err)
