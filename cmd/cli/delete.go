@@ -20,7 +20,12 @@ var deleteCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Open failed: %v", err)
 		}
-		defer db.Close()
+
+		defer func() {
+			if err := db.Close(); err != nil {
+				log.Printf("Close failed: %v", err)
+			}
+		}()
 
 		err = db.Delete(key)
 		if err != nil {

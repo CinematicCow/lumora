@@ -25,7 +25,12 @@ var getCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Open failed: %v", err)
 		}
-		defer db.Close()
+
+		defer func() {
+			if err := db.Close(); err != nil {
+				log.Printf("Close failed: %v", err)
+			}
+		}()
 
 		value, err := db.Get(key)
 		if err != nil {

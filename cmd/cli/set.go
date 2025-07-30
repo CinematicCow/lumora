@@ -25,7 +25,12 @@ var putCmd = &cobra.Command{
 		if err != nil {
 			log.Fatalf("Open failed: %v", err)
 		}
-		defer db.Close()
+
+		defer func() {
+			if err := db.Close(); err != nil {
+				log.Printf("Close failed: %v", err)
+			}
+		}()
 
 		if err := db.Put(key, []byte(value)); err != nil {
 			log.Fatalf("Set failed: %v", err)

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -27,8 +28,11 @@ func Open(dir string) (*DB, error) {
 	}
 
 	if err := db.buildindex(); err != nil {
-		f.Close()
-		return nil, err
+		closeErr := f.Close()
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to build index: %w | Failed to close file: %v", err, closeErr)
+		}
+		return nil, fmt.Errorf("failed to build index: %w", err)
 	}
 	return db, nil
 }

@@ -27,12 +27,12 @@ func WithDDK(cmd *cobra.Command) error {
 	}
 
 	if dbName == "" {
-		return fmt.Errorf("no database specified. Either:\n1. Use --db-name flag\n2. Initialize new database: lumora init <name>\n")
+		return fmt.Errorf("no database specified. Either:\n1. Use --db-name flag\n2. Initialize new database: lumora init <name>")
 	}
 
 	dbPath, exists := cfg.GetDBPath(dbName)
 	if !exists {
-		return fmt.Errorf("database %q not found.\nAvailable options:\n- Initialize it: lumora init %s\n", dbName, dbName)
+		return fmt.Errorf("database %q not found.\nAvailable options:\n- Initialize it: lumora init %s", dbName, dbName)
 	}
 
 	cmd.SetContext(context.WithValue(cmd.Context(), DDK, dbPath))

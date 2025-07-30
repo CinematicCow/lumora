@@ -1,0 +1,39 @@
+version: '2'
+
+exclusions:
+  generated: lax
+  warn-unused: true
+  rules:
+    - path: _test/.go
+      linters:
+        - errcheck
+linters:
+  enable:
+    - errcheck
+    - gosec
+    - revive
+    - staticcheck
+    - gofumpt
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - colines
+
+run:
+  timeout: 5m
+  tests: false
+
+issues:
+  exclude-use-default: false
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - colines

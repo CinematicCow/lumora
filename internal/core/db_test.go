@@ -12,7 +12,12 @@ func TestDB_BasicOps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+
+	defer func ()  {
+		if err := db.Close(); err!=nil {
+			t.Fatalf("close failed: %v",err)
+		}
+	}()
 
 	key, val := "k", []byte("v")
 	if err := db.Put(key, val); err != nil {
@@ -43,7 +48,13 @@ func TestDB_Reopen(t *testing.T) {
 	_ = db1.Close()
 
 	db2, _ := core.Open(dir)
-	defer db2.Close()
+
+	defer func ()  {
+		if err := db2.Close(); err!=nil {
+			t.Fatalf("close failed: %v",err)
+		}
+	}()
+
 	v, err := db2.Get("yo")
 	if err != nil || string(v) != "mama" {
 		t.Fatalf("reopen failed: %v %q", err, v)
